@@ -11,11 +11,15 @@ export function makeGenerateQueryOrRespond(tools: any[]) {
         const model = new ChatGoogleGenerativeAI({
             model: "gemini-2.5-flash",
             apiKey: process.env.GOOGLE_API_KEY!,
-            temperature: 0,
         }).bindTools(tools);
+
+        console.log("🤖 Deciding whether to retrieve or respond...");
+        console.log("User query:", messages.at(0)?.content);
 
         // 🌟 Normalize messages for Gemini
         const response = await model.invoke(messages);
+
+        console.log("Tool calls requested:", response.tool_calls?.length ?? 0);
 
         // 🌟 LangGraph requires object with { messages: BaseMessage[] }
         return {

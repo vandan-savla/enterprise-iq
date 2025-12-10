@@ -1,7 +1,8 @@
 // src/app/agent/nodes/gradeDocuments.ts
 import * as z from "zod";
-import { ChatPromptTemplate } from "@langchain/core/prompts";
 import { ChatGoogleGenerativeAI } from "@langchain/google-genai";
+import { AIMessage } from "@langchain/core/messages";
+import { gradePrompt } from "../prompts/gradeDocumentPrompt";
 
 /**
  * gradeDocuments(nodeState)
@@ -10,18 +11,7 @@ import { ChatGoogleGenerativeAI } from "@langchain/google-genai";
  * - Based on result, graph will choose next node ("generate" or "rewrite")
  */
 
-const gradePrompt = ChatPromptTemplate.fromTemplate(`
-    You are a grader assessing relevance of retrieved documents to a user question.
 
-    Here are the retrieved docs:
-    {context}
-
-    User question:
-    {question}
-
-    Are these documents relevant to answer the user's question?
-    Return a JSON with { "binaryScore": "yes" } if relevant or { "binaryScore": "no" } otherwise.
-    `);
 
 const gradeSchema = z.object({
     binaryScore: z.string().describe("'yes' or 'no'"),
@@ -32,11 +22,14 @@ export function makeGradeDocumentsNode() {
         const messages = state.messages as any[];
         const question = messages.at(0)?.content ?? "";
         const retrievedContext = messages.at(-1)?.content ?? "";
-        console.log(messages);
+
+        console.log("🔍 Grading documents...");
+        console.log("Question:", question);
+        console.log("Context preview:", retrievedContext.slice(0, 200));
+
         const model = new ChatGoogleGenerativeAI({
             model: "gemini-2.5-flash",
             apiKey: process.env.GOOGLE_API_KEY!,
-            temperature: 0,
         }).withStructuredOutput(gradeSchema);
 
         const parsed = await gradePrompt.pipe(model).invoke({
@@ -46,9 +39,10 @@ export function makeGradeDocumentsNode() {
 
         const decision = parsed.binaryScore?.toLowerCase() === "yes" ? "generate" : "rewrite";
 
+        console.log("📊 Grading decision:", decision);
+
         return {
-            messages: [{ type: "system", content: decision }],
-            decision,
+            messages: [new AIMessage({ content: decision })],
         };
     };
-}
+} 

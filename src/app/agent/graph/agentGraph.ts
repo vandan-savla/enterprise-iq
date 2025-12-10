@@ -57,49 +57,45 @@ export async function buildAgentGraph() {
         return END;
     }
 
-    // const builder = new StateGraph(GraphState)
-    //     // Define nodes
-    //     .addNode("generateQueryOrRespond", generateQueryOrRespond)
-    //     .addNode("retrieve", toolNode)
-    //     .addNode("gradeDocuments", gradeDocuments)
-    //     .addNode("rewrite", rewrite)
-    //     .addNode("generate", generateAnswer)
-    //     // Define edges
-    //     .addEdge(START, "generateQueryOrRespond")
-    //     // Conditional: check if we need to call retriever
-    //     .addConditionalEdges("generateQueryOrRespond", shouldRetrieve)
-    //     // Once docs are retrieved → grade them
-    //     .addEdge("retrieve", "gradeDocuments")
-    //     // Conditional edges after grading
-    //     .addConditionalEdges(
-    //         "gradeDocuments",
-    //         (state) => {
-    //             // gradeDocuments returns "generate" or "rewrite"
-    //             const last = state.messages.at(-1);
-    //             return last?.content === "generate" ? "generate" : "rewrite";
-    //         }
-    //     )
-    //     // rewrite -> generateQueryOrRespond (loop if question needs improvement)
-    //     .addEdge("rewrite", "generateQueryOrRespond")
-    //     // generate → END
-    //     .addEdge("generate", END);
+    // --- 🧩 5. Routing function after grading documents ---
+    function routeAfterGrading(state: { messages: any; }) {
+        const { messages } = state;
+        const lastMessage = messages.at(-1);
 
-    // // --- 🧱 6. Compile graph ---
-    // const graph = builder.compile();
+        // gradeDocuments puts the decision ("generate" or "rewrite") in an AIMessage
+        const decision = lastMessage?.content;
+        console.log("🔀 Routing after grading, decision:", decision);
 
-    // Return both for external use
-    // return { graph, tools };
+        if (decision === "generate" || decision === "rewrite") {
+            return decision;
+        }
+        return "generate"; // fallback to generate if decision unclear
+    }
+
     const builder = new StateGraph(GraphState)
         // Nodes
         .addNode("generateQueryOrRespond", generateQueryOrRespond)
         .addNode("retrieve", toolNode)
+        .addNode("gradeDocuments", gradeDocuments)
         .addNode("rewrite", rewrite)
         .addNode("generate", generateAnswer)
+
         // Edges
         .addEdge(START, "generateQueryOrRespond")
+
+        // After generateQueryOrRespond: check if tool was called
         .addConditionalEdges("generateQueryOrRespond", shouldRetrieve)
-        .addEdge("retrieve", "generate")
+
+        // After retrieve: ALWAYS grade documents (CRITICAL FIX)
+        .addEdge("retrieve", "gradeDocuments")
+
+        // After grading: route based on relevance
+        .addConditionalEdges("gradeDocuments", routeAfterGrading)
+
+        // After rewrite: try again with improved question
         .addEdge("rewrite", "generateQueryOrRespond")
+
+        // After generate: done
         .addEdge("generate", END);
 
     // --- 6️⃣ Compile and return ---
