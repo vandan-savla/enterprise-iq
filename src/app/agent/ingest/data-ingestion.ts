@@ -5,20 +5,30 @@ import { RecursiveCharacterTextSplitter } from "@langchain/textsplitters";
 import { PDFLoader } from "@langchain/community/document_loaders/fs/pdf";
 import { DocxLoader } from "@langchain/community/document_loaders/fs/docx";
 import path from "path";
+import crypto from "crypto";
 
-export const ingestData = async (filePath: string) => {
-    console.log("Starting ingestion for:", filePath);
+type IngestInput = {
+    filePath: string;
+    department: string;
+    is_active: boolean;
+    allowed_roles: string[];
+};
+
+export const ingestData = async (input: IngestInput) => {
+    console.log("Starting ingestion for:", input);
+    const { filePath, department, allowed_roles, is_active } = input;
+
     const ext = path.extname(filePath).toLowerCase();
     const fileName = path.basename(filePath);
-
+    const docId = crypto.randomUUID();
     // ---------- Step 1: Choose loader ----------
     let loader;
     switch (ext) {
         case ".pdf":
-            loader = new PDFLoader(filePath);
+            loader = new PDFLoader(input.filePath);
             break;
         case ".docx":
-            loader = new DocxLoader(filePath);
+            loader = new DocxLoader(input.filePath);
             break;
         default:
             throw new Error(`Unsupported file type: ${ext}`);
@@ -62,12 +72,17 @@ export const ingestData = async (filePath: string) => {
             collectionName,
         });
 
+
+
         // Attach useful metadata for retrieval filtering later
         const now = new Date().toISOString();
         splitDocs.forEach((doc) => {
             doc.metadata = {
-                ...(doc.metadata || {}),
-                filename: fileName,
+                doc_id: docId,
+                doc_type: ext,
+                is_active,
+                allowed_roles,
+                department,
                 uploadedAt: now,
             };
         });
@@ -83,3 +98,4 @@ export const ingestData = async (filePath: string) => {
         );
     }
 };
+

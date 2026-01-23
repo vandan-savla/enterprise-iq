@@ -16,24 +16,59 @@ export async function POST(request: NextRequest) {
     try {
         const form = await request.formData();
         const file = form.get("file") as File | null;
+        const department = form.get("department") as string | null;
+        const allowedRolesRaw = form.get("allowed_roles") as string | null;
+        const is_active_raw = form.get("is_active") as string;
 
-        if (!file) {
-            const res: ApiResponse<null> = {
-                data: null,
-                message: "File is required in form-data under key 'file'.",
-                status: "error",
-            };
-            return NextResponse.json(res, { status: 400 });
+        if (!file || !department || !allowedRolesRaw || !is_active_raw) {
+            return NextResponse.json<ApiResponse<null>>(
+                {
+                    data: null,
+                    message: "Missing required fields: file, department, allowed_roles, is_active",
+                    status: "error",
+                },
+                { status: 400 }
+            );
+        }
+        let is_active: boolean;
+        try {
+            is_active = JSON.parse(is_active_raw);
+        } catch {
+            return NextResponse.json<ApiResponse<null>>(
+                {
+                    data: null,
+                    message: "is_active must be a boolean",
+                    status: "error",
+                },
+                { status: 400 }
+            );
         }
 
+        let allowed_roles: string[];
+        try {
+            allowed_roles = JSON.parse(allowedRolesRaw);
+        } catch {
+            return NextResponse.json<ApiResponse<null>>(
+                {
+                    data: null,
+                    message: "allowed_roles must be a JSON array of strings",
+                    status: "error",
+                },
+                { status: 400 }
+            );
+        }
         // --- Step 1: Validate file metadata
         try {
-            
+
             const parsed = UploadDocumentSchema.safeParse({
                 filename: file.name,
                 mimetype: file.type,
                 size: file.size,
+                department,
+                allowed_roles,
+                is_active
             });
+
             if (!parsed.success) {
                 const res: ApiResponse<null> = {
                     data: null,
@@ -75,7 +110,13 @@ export async function POST(request: NextRequest) {
 
         // --- Step 3: Ingest into vector store
         try {
-            await ingestData(tempFilePath);
+
+            await ingestData({
+                filePath: tempFilePath,
+                department,
+                is_active,
+                allowed_roles,
+            });
             console.log(" Ingestion completed successfully");
         } catch (err: any) {
             console.error("Ingestion failed:", err);

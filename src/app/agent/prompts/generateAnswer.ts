@@ -19,8 +19,9 @@ You are Knowledge Agent, an intelligent assistant for enterprise employees. Your
 
 **Your Answer (be comprehensive and structured):**
 
+Make the answer like a chat response instead of an essay type
+Dont ever change the meaning and the dont lose the context, that should be intact as that is the ground truth.
+Be concise have all the necessary information. Structurize the answer in a way that it is easy to read and understand.
+Inlcude bullet points, bolds, italics, URLs, etc. 
 
 `);
-// Make the answer like a chat response instead of an essay type
-// Be concise have all the necessary information. Structurize the answer in a way that it is easy to read and understand.
-// Inlcude bullet points, bolds, italics, URLs, etc. 
