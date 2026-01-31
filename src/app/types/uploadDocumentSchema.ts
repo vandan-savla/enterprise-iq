@@ -13,7 +13,6 @@ export const UploadDocumentSchema = z.object({
   mimetype: z.enum([
     "application/pdf",
     "text/plain",
-    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
   ]),
   size: z.number().max(50_000_000),
 

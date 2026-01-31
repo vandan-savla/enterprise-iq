@@ -3,7 +3,7 @@ import { QdrantVectorStore } from "@langchain/qdrant";
 import { GoogleGenerativeAIEmbeddings } from "@langchain/google-genai";
 import { RecursiveCharacterTextSplitter } from "@langchain/textsplitters";
 import { PDFLoader } from "@langchain/community/document_loaders/fs/pdf";
-import { DocxLoader } from "@langchain/community/document_loaders/fs/docx";
+import { QdrantClient } from "@qdrant/js-client-rest";
 import path from "path";
 import crypto from "crypto";
 
@@ -26,9 +26,6 @@ export const ingestData = async (input: IngestInput) => {
     switch (ext) {
         case ".pdf":
             loader = new PDFLoader(input.filePath);
-            break;
-        case ".docx":
-            loader = new DocxLoader(input.filePath);
             break;
         default:
             throw new Error(`Unsupported file type: ${ext}`);
@@ -59,8 +56,6 @@ export const ingestData = async (input: IngestInput) => {
     });
 
 
-    console.log(embeddings)
-
     const collectionName = "enterprise-kb-documents";
     const qdrantUrl = process.env.QDRANT_URL!;
     const qdrantApiKey = process.env.QDRANT_API_KEY;
@@ -72,24 +67,49 @@ export const ingestData = async (input: IngestInput) => {
             collectionName,
         });
 
-
-
         // Attach useful metadata for retrieval filtering later
+        // IMPORTANT: Spread original metadata to preserve filename, page numbers, etc.
         const now = new Date().toISOString();
         splitDocs.forEach((doc) => {
+            const pageNumber =
+                (doc.metadata?.loc as any)?.pageNumber ??
+                doc.metadata?.pageNumber;
+
             doc.metadata = {
+                ...doc.metadata,  // Preserve original metadata (filename, loc, pageNumber, etc.)
+                filename: fileName,  // Explicitly set filename from input
                 doc_id: docId,
                 doc_type: ext,
                 is_active,
                 allowed_roles,
                 department,
                 uploadedAt: now,
+                pageNumber: pageNumber,
             };
         });
 
         await vectorStore.addDocuments(splitDocs);
         console.log("Document chunks embedded and added to Qdrant.");
-        console.log(vectorStore);
+
+        // Create payload indexes for filtering (required by Qdrant for efficient filtering)
+        const qdrantClient = new QdrantClient({ url: qdrantUrl, apiKey: qdrantApiKey });
+        const indexFields = [
+            { field_name: "metadata.is_active", field_schema: "bool" as const },
+            { field_name: "metadata.department", field_schema: "keyword" as const },
+            { field_name: "metadata.allowed_roles", field_schema: "keyword" as const },
+
+        ];
+
+        for (const field of indexFields) {
+            try {
+                await qdrantClient.createPayloadIndex(collectionName, field);
+                console.log(`Index created for ${field.field_name}`);
+            } catch {
+                // Index might already exist
+                console.log(`Index for ${field.field_name} already exists`);
+            }
+        }
+
         return vectorStore;
     } catch (err: any) {
         console.error("Qdrant ingestion error:", err);

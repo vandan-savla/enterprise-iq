@@ -23,7 +23,7 @@ export function makeGradeDocumentsNode() {
         const question = messages.at(0)?.content ?? "";
         const retrievedContext = messages.at(-1)?.content ?? "";
 
-        console.log("🔍 Grading documents...");
+        console.log("Grading documents...");
         console.log("Question:", question);
         console.log("Context preview:", retrievedContext.slice(0, 200));
 

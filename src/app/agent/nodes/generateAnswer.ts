@@ -56,7 +56,7 @@ export function makeGenerateAnswerNode() {
             context: retrieved,
         });
 
-        console.log("✅ Answer generated:", response.content?.slice(0, 100));
+        console.log("Answer generated:", response.content?.slice(0, 100));
 
         return { messages: [response] };
     };
