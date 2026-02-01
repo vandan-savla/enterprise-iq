@@ -9,7 +9,7 @@ export function makeGenerateQueryOrRespond(tools: any[]) {
         const messages = Array.isArray(state.messages) ? state.messages : [];
 
         const model = new ChatGoogleGenerativeAI({
-            model: "gemini-2.5-flash",
+            model: "gemini-3-flash-preview",
             apiKey: process.env.GOOGLE_API_KEY!,
         }).bindTools(tools);
 
@@ -20,7 +20,9 @@ export function makeGenerateQueryOrRespond(tools: any[]) {
         const response = await model.invoke(messages);
 
         console.log("Tool calls requested:", response.tool_calls?.length ?? 0);
-
+        console.log("Response:", {
+            messages: [response],
+        });
         // 🌟 LangGraph requires object with { messages: BaseMessage[] }
         return {
             messages: [response],

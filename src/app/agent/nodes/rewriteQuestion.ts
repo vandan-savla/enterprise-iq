@@ -13,7 +13,7 @@ export function makeRewriteNode() {
         const question = messages.at(0)?.content ?? "";
 
         const model = new ChatGoogleGenerativeAI({
-            model: "gemini-2.5-flash",
+            model: "gemini-3-flash-preview",
             apiKey: process.env.GOOGLE_API_KEY!,
         });
 

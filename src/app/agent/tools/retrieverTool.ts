@@ -48,7 +48,7 @@ export async function buildRetrieverTool() {
         // IMPORTANT: This is still ANN vector similarity search
         const docs = await vectorStore.similaritySearch(
           query,
-          5, 
+          5,
           {
             must: [
               { key: "metadata.is_active", match: { value: true } },
@@ -58,7 +58,7 @@ export async function buildRetrieverTool() {
               },
               {
                 key: "metadata.allowed_roles",
-                match: { any: ["HR"] },
+                match: { any: ["user"] },
               },
             ],
           }
@@ -72,7 +72,7 @@ export async function buildRetrieverTool() {
               filename: doc.metadata?.filename ?? `Document ${i + 1}`,
               pageNumber: doc.metadata?.pageNumber,
               uploadedAt: doc.metadata?.uploadedAt,
-              
+
             },
           };
         });
