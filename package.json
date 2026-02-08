@@ -16,6 +16,8 @@
     "@langchain/google-genai": "^1.0.0",
     "@langchain/langgraph": "^1.0.1",
     "@langchain/qdrant": "^1.0.0",
+    "@supabase/ssr": "^0.8.0",
+    "@supabase/supabase-js": "^2.93.3",
     "huggingface": "^1.4.0",
     "langchain": "^1.0.3",
     "mammoth": "^1.11.0",
