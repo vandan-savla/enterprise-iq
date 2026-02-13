@@ -1,14 +1,13 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/app/utils/supabase/admin";
+import { ApiResponse } from "@/app/types/apiResponse";
 
 export async function POST(req: Request) {
     try {
-        const { organization_display_name, first_name, last_name, email, password } = await req.json();
+        const { organization_display_name, first_name, last_name, email, password, username } = await req.json();
 
         const organization_name = organization_display_name.toLowerCase().trim().replace(/\s+/g, "-");
 
-        // NEED TO HANDLE DUPES FOR ORG NAME AND USERNAME BETTER, THIS IS JUST A QUICK FIX
-        const username = `${first_name.toLowerCase().trim()}-${last_name.toLowerCase().trim()}`;
         //  Create Auth User
         const { data: authUser, error: authError } = await supabaseAdmin.auth.admin.createUser({
             email,
@@ -17,6 +16,9 @@ export async function POST(req: Request) {
         });
 
         let authUserId = authUser?.user?.id || null;
+
+        const { data: inviteData, error: inviteError } = await supabaseAdmin.auth.admin.inviteUserByEmail(email);
+        console.log("Invite Data:", inviteData, "Invite Error:", inviteError);
 
 
         // Handle "User Already Exists" (Auth error 422 or similar)
@@ -35,13 +37,19 @@ export async function POST(req: Request) {
             if (existingUser) {
                 console.warn("User already exists. Attempting idempotent setup for:", email);
                 authUserId = existingUser.id;
-                // Optional: Resend verification email if they aren't confirmed yet
+                // Resend verification email if they aren't confirmed yet
                 if (!existingUser.email_confirmed_at) {
                     await supabaseAdmin.auth.admin.inviteUserByEmail(email);
                 }
             } else {
                 // If it's a real error (like password too weak), stop here
-                return NextResponse.json({ error: authError.message }, { status: 400 });
+                // return NextResponse<>.json({ error: authError.message }, { status: 400 });
+                return NextResponse.json<ApiResponse<null>>({
+                    data: null,
+                    message: authError.message,
+                    status: "error",
+                }, { status: 400 });
+
             }
         }
         let rpc_payload = {
@@ -51,7 +59,7 @@ export async function POST(req: Request) {
             p_email: email,
             p_first_name: first_name,
             p_last_name: last_name,
-            p_username: username, // You might want to generate or accept a username as well
+            p_username: username.toLowerCase(),
         }
 
         console.log("RPC Payload: ", rpc_payload);
@@ -63,12 +71,27 @@ export async function POST(req: Request) {
 
         if (dbError) {
             console.error("DB Bootstrap Error:", dbError);
-            return NextResponse.json({ error: "Database setup failed. Please contact support." }, { status: 500 });
+            // return NextResponse.json({ error: "Database setup failed. Please contact support." }, { status: 500 });
+
+            return NextResponse.json<ApiResponse<null>>({
+                data: null,
+                message: "Database setup failed. Please contact support.",
+                status: "error",
+            }, { status: 500 });
         }
 
-        return NextResponse.json({
-            success: true,
-            message: "Setup initiated. Please check your email to verify your account.",
+        if (!inviteError) {
+
+            return NextResponse.json<ApiResponse<null>>({
+                data: null,
+                message: "Setup initiated. Please check your email to verify your account.",
+                status: "success"
+            });
+        }
+        return NextResponse.json<ApiResponse<null>>({
+            data: null,
+            message: "User is already registered. Please Login to continue.",
+            status: "error"
         });
 
     } catch (err: any) {

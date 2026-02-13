@@ -1,6 +1,6 @@
 // Generic API Response wrapper for consistent structure
 export type ApiResponse<T> = {
-  data: T;
+  data: T | null;
   message: string;
   status: "success" | "error";
 };
