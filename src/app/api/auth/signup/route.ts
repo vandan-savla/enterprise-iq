@@ -1,25 +1,41 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/app/utils/supabase/admin";
+import { createServerSupabaseClient } from "@/app/utils/supabase/server";
 import { ApiResponse } from "@/app/types/apiResponse";
 
 export async function POST(req: Request) {
+    const supabase = createServerSupabaseClient();
     try {
         const { organization_display_name, first_name, last_name, email, password, username } = await req.json();
 
         const organization_name = organization_display_name.toLowerCase().trim().replace(/\s+/g, "-");
 
-        //  Create Auth User
-        const { data: authUser, error: authError } = await supabaseAdmin.auth.admin.createUser({
+        const usernameValidation = await supabaseAdmin.rpc("is_valid_username", {
+            p_username: username,
+            p_org_name: organization_name,
+        });
+        const { data: userDetails, error: userDetailsError } = await supabaseAdmin.from("user_details").select("id").eq("email", email).single();
+
+        console.log("User Details :", userDetails, "User Details Error:", userDetailsError);
+        if (!usernameValidation.data && !userDetails) {
+            return NextResponse.json<ApiResponse<null>>({
+                data: null,
+                message: "Username already exists in this organization. Please choose a different username.",
+                status: "error",
+            }, { status: 400 });
+        }
+
+
+        const { data: authUser, error: authError } = await supabaseAdmin.auth.signUp({
             email,
             password,
-            email_confirm: false,
+            options: {
+                emailRedirectTo: `${process.env.NEXT_PUBLIC_SITE_URL}/auth/verify`,
+            },
         });
-
         let authUserId = authUser?.user?.id || null;
 
-        const { data: inviteData, error: inviteError } = await supabaseAdmin.auth.admin.inviteUserByEmail(email);
-        console.log("Invite Data:", inviteData, "Invite Error:", inviteError);
-
+        console.log("Sign Up Data:", authUser, "Sign Up Error:", authError);
 
         // Handle "User Already Exists" (Auth error 422 or similar)
         if (authError) {
@@ -39,7 +55,11 @@ export async function POST(req: Request) {
                 authUserId = existingUser.id;
                 // Resend verification email if they aren't confirmed yet
                 if (!existingUser.email_confirmed_at) {
-                    await supabaseAdmin.auth.admin.inviteUserByEmail(email);
+                    await supabase.auth.signUp({
+                        email,
+                        password,
+
+                    });
                 }
             } else {
                 // If it's a real error (like password too weak), stop here
@@ -72,7 +92,6 @@ export async function POST(req: Request) {
         if (dbError) {
             console.error("DB Bootstrap Error:", dbError);
             // return NextResponse.json({ error: "Database setup failed. Please contact support." }, { status: 500 });
-
             return NextResponse.json<ApiResponse<null>>({
                 data: null,
                 message: "Database setup failed. Please contact support.",
@@ -80,17 +99,17 @@ export async function POST(req: Request) {
             }, { status: 500 });
         }
 
-        if (!inviteError) {
+        if (!authError) {
 
-            return NextResponse.json<ApiResponse<null>>({
-                data: null,
+            return NextResponse.json<ApiResponse<string>>({
+                data: authUser.user?.email || null,
                 message: "Setup initiated. Please check your email to verify your account.",
                 status: "success"
             });
         }
-        return NextResponse.json<ApiResponse<null>>({
+        return NextResponse.json<ApiResponse<string>>({
             data: null,
-            message: "User is already registered. Please Login to continue.",
+            message: authError.message,
             status: "error"
         });
 
