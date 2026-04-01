@@ -56,6 +56,7 @@ export async function POST(req: Request) {
                 p_first_name: first_name,
                 p_last_name: last_name,
                 p_username: username,
+                p_role_name: "user"
             }
         );
 

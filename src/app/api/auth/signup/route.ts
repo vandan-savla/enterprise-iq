@@ -17,7 +17,7 @@ export async function POST(req: Request) {
         const { data: userDetails, error: userDetailsError } = await supabaseAdmin.from("user_details").select("id").eq("email", email).single();
 
         console.log("User Details :", userDetails, "User Details Error:", userDetailsError);
-        if (!usernameValidation.data && !userDetails) {
+        if (!usernameValidation.data) {
             return NextResponse.json<ApiResponse<null>>({
                 data: null,
                 message: "Username already exists in this organization. Please choose a different username.",
@@ -29,9 +29,7 @@ export async function POST(req: Request) {
         const { data: authUser, error: authError } = await supabaseAdmin.auth.signUp({
             email,
             password,
-            options: {
-                emailRedirectTo: `${process.env.NEXT_PUBLIC_SITE_URL}/auth/verify`,
-            },
+
         });
         let authUserId = authUser?.user?.id || null;
 
@@ -80,6 +78,7 @@ export async function POST(req: Request) {
             p_first_name: first_name,
             p_last_name: last_name,
             p_username: username.toLowerCase(),
+            p_role_name: "admin"
         }
 
         console.log("RPC Payload: ", rpc_payload);
